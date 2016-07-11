@@ -67,7 +67,6 @@ typedef struct _LI_RGB
     BYTE r;  
 }LI_RGB; 
 
-
 class CImageConvert  
 {
 public:
