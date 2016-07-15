@@ -103,6 +103,7 @@ protected:
 	BYTE* StretchImage(int iSrcWidth,int iSrcHeight,int iBitCount,BYTE* lpSrcData,int iDestWidth,int iDestHeight,StretchMode stretMode=StretchMode::bilinear);
 	BYTE* ConvertImageTo8Bit(int iWidth,int iHeigh,int iBitCount,BYTE* lpSrcData);
 	static BYTE* ConvertBmp8to1(int iWidth,int iHeigh,BYTE* lpSrcData);
+	static BYTE* ConvertBmp8to1Ex(int iWidth,int iHeigh,BYTE* lpSrcData);
 	void ImageBinarization(int iWidth,int iHeight,unsigned char *pPixels,float fThresholdKey);
 	bool SaveBmpImageFile(const char* lpFileName);
 	bool SaveJpgImageFile(const char* lpFileName);

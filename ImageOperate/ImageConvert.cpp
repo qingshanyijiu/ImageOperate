@@ -292,6 +292,7 @@ bool CImageConvert::ConvertImageTo8Bit()
 		m_pImageData = pNewData;
 		m_nBitCount = 8;
 		m_nSize = ((m_nWidth * m_nBitCount + 31) / 32) * 4 * m_nHeight;
+		m_bIsBlackOneBitBmp = false;
 
 		return true;
 	}
@@ -319,7 +320,7 @@ bool CImageConvert::ConvertImageToOneBit()
 		ConvertImageTo8Bit();
 	}
 
-	BYTE* pNewData = ConvertBmp8to1(m_nWidth,m_nHeight,m_pImageData);
+	BYTE* pNewData = ConvertBmp8to1Ex(m_nWidth,m_nHeight,m_pImageData);
 	delete [] m_pImageData;
 	m_pImageData = pNewData;
 	m_nBitCount = 1;
@@ -341,7 +342,7 @@ BYTE* CImageConvert::ConvertBmp8to1(int iWidth,int iHeight,BYTE* lpSrcData)
 	lpDestData = new BYTE[iSize];
 	memset(lpDestData,0xFF,iSize);
 
-	for (i=0;i<iHeight-1;++i)
+	for (i=0;i<iHeight;++i)
 	{
 		//k=0;
 		lpTempData = lpDestData+iwByte*i;
@@ -359,6 +360,48 @@ BYTE* CImageConvert::ConvertBmp8to1(int iWidth,int iHeight,BYTE* lpSrcData)
 			for (j=iL;j<8;++j)
 				lpTempData[k] = (lpTempData[k]<<1)|0x01;
 		}
+	}
+	
+	return lpDestData;
+}
+
+BYTE* CImageConvert::ConvertBmp8to1Ex(int iWidth,int iHeight,BYTE* lpSrcData)
+{
+	int i,j;
+	int iSize,iLineLen,iwByte;
+	BYTE *lpDestData,*lpTempData;
+	unsigned char	data = 0x00;
+	unsigned char	data_mask = 0x80;
+	
+	iLineLen = (((iWidth * 8 + 31) & ~31) >> 3);
+	iwByte = ((iWidth + 31) / 32) * 4 ;
+	iSize =	iwByte*iHeight;
+	
+	lpDestData = new BYTE[iSize];
+	memset(lpDestData,0xFF,iSize);
+	
+	for (j = 0; j<iHeight; ++j)
+	{
+		lpTempData = lpDestData+iwByte*j;
+		for (i = 0; i <iWidth; ++i)
+		{
+			if(lpSrcData[j*iLineLen+i]>0x80)
+				data = (BYTE)(data | data_mask);
+			
+			data_mask >>= 1;
+			if(7 == i % 8)
+			{
+				lpTempData[i/8] = data;
+				data = 0x00;
+				data_mask = 0x80;
+			}
+		}	
+		if (data_mask != 0x80) 
+		{
+			lpTempData[iWidth/8] = data;
+			data = 0x00;
+			data_mask = 0x80;
+		}	
 	}
 	
 	return lpDestData;
@@ -757,12 +800,11 @@ int CImageConvert::GetPrintImageData(BYTE* lpDestData)
 	unsigned char	data = 0x00;
 	unsigned char	data_mask = 0x80;
 	int i,j,iCount=0;
-	BYTE bValue;
 
 	if (m_nBitCount != 8)
 	{
 		int iCount = m_nBitCount;
-		ConvertImageTo8Bit(m_nWidth,m_nHeight,m_nBitCount,m_pImageData);
+		ConvertImageTo8Bit();
 		if (iCount > 8)
 			ConvertImageBinarization();
 	}
@@ -771,25 +813,19 @@ int CImageConvert::GetPrintImageData(BYTE* lpDestData)
 		ConvertImageBinarization();
 	}
 	
-	int iLineCount = ((m_nWidth*m_nBitCount + 31) / 32) * 4;
-	
-	for (j = 0; j < m_nHeight; ++j)
+	int iLineCount = (((m_nWidth * m_nBitCount + 31) & ~31) >> 3);
+
+	iCount = 0;
+	for (j = 0; j<m_nWidth; ++j)
 	{
-		for (i = 0; i <m_nWidth; ++i)
+		for (i = 0; i <m_nHeight; ++i)
 		{
-			//l_color = GetPixel( memDC, i, j );
-			bValue = m_pImageData[(m_nHeight-j-1)*iLineCount+i];
-			if(bValue<0x80)
-			{
-				// if the color is not white
-				// 1 means a pixel will be printed
+			if(!m_pImageData[(m_nHeight-i-1)*iLineCount+j])
 				data = (BYTE)(data | data_mask);
-			}	
 			
 			data_mask >>= 1;
-			if( i % 8 == 7)
+			if(7 == i % 8)
 			{
-				//if data contains 8 bits store in the char array
 				lpDestData[iCount++] = data;
 				data = 0x00;
 				data_mask = 0x80;
@@ -802,6 +838,7 @@ int CImageConvert::GetPrintImageData(BYTE* lpDestData)
 			data_mask = 0x80;
 		}	
 	}
+
 
 	return iCount;
 }
