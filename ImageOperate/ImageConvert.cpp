@@ -29,6 +29,7 @@ CImageConvert::CImageConvert()
 	m_nHeight = 0;
 	m_nLineCount = 0;
 	m_nSize = 0;
+	m_bIsBlackOneBitBmp = false;
 	m_pImageData = NULL;
 }
 
@@ -105,8 +106,19 @@ bool CImageConvert::LoadBmpImageFile(const char* lpFileName)
 	m_nLineCount = ((m_nWidth * m_nBitCount + 31) & ~31) >> 3;
 	m_nSize = m_nLineCount*m_nHeight;
 
-	if (bmiHeader.biClrUsed)
-		fseek(pFile,bmiHeader.biClrUsed*sizeof(RGBQuad),SEEK_CUR);
+// 	if (bmiHeader.biClrUsed)
+// 		fseek(pFile,bmiHeader.biClrUsed*sizeof(RGBQuad),SEEK_CUR);
+
+	if (1 == m_nBitCount)
+	{
+		m_bIsBlackOneBitBmp = false;
+		RGBQuad rgbQuad={0};
+		fread(&rgbQuad,sizeof(RGBQuad),1,pFile);
+		if (rgbQuad.rgbRed)
+			m_bIsBlackOneBitBmp = true;
+	}
+	
+	fseek(pFile,bmfHeader.bfOffBits,SEEK_SET);
 
 	m_pImageData = new BYTE[m_nSize];
 	fread(m_pImageData,m_nSize,1,pFile);
@@ -401,9 +413,19 @@ bool CImageConvert::SaveBmpImageFile(const char* lpFileName)
 	if (1 == m_nBitCount)
 	{
 		RGBQuad rgbQuad[2]={0};
-		rgbQuad[1].rgbBlue = 0xFF;
-		rgbQuad[1].rgbGreen = 0xFF;
-		rgbQuad[1].rgbRed = 0xFF;
+		if (m_bIsBlackOneBitBmp)
+		{
+			rgbQuad[0].rgbBlue = 0xFF;
+			rgbQuad[0].rgbGreen = 0xFF;
+			rgbQuad[0].rgbRed = 0xFF;
+		}
+		else
+		{
+			rgbQuad[1].rgbBlue = 0xFF;
+			rgbQuad[1].rgbGreen = 0xFF;
+			rgbQuad[1].rgbRed = 0xFF;
+		}
+	
 		
 		fwrite(rgbQuad, 2*sizeof(RGBQuad), 1, pFile);  
 	}
@@ -577,7 +599,7 @@ BYTE* CImageConvert::StretchImage(int iSrcWidth,int iSrcHeight,int iBitCount,BYT
 
 BYTE* CImageConvert::ConvertImageTo8Bit(int iWidth,int iHeight,int iBitCount,BYTE* lpSrcData)
 {
-	int alignOldBytes = (4-((iWidth*iBitCount)/8) % 4) % 4;
+	int alignOldBytes = (4-((iWidth*iBitCount+7)/8) % 4) % 4;
     int alignNewBytes  = (4-(iWidth) % 4) % 4;
 	int desBufSize = (((iWidth * 8 + 31) & ~31) >> 3)* iHeight;
 	BYTE *desBuf = new BYTE[desBufSize],*lpDest;
@@ -595,13 +617,29 @@ BYTE* CImageConvert::ConvertImageTo8Bit(int iWidth,int iHeight,int iBitCount,BYT
 		{
 			if (1 == iBitCount)
 			{
-				if (*lpSrcData&bMask)
-					*lpDest++ = 0xFF;
+				if (m_bIsBlackOneBitBmp)
+				{
+					if (*lpSrcData&bMask)
+						*lpDest++ = 0x00;
+					else
+						*lpDest++ = 0xFF;
+				}
 				else
-					*lpDest++ = 0x00;
+				{
+					if (*lpSrcData&bMask)
+						*lpDest++ = 0xFF;
+					else
+						*lpDest++ = 0x00;
+				}
+				
 				bMask >>=1;
 
 				if (7 == iw%8)
+				{
+					++lpSrcData;
+					bMask = 0x80;
+				}
+				else if (iw ==iWidth-1)
 				{
 					++lpSrcData;
 					bMask = 0x80;
@@ -720,18 +758,20 @@ int CImageConvert::GetPrintImageData(BYTE* lpDestData)
 	unsigned char	data_mask = 0x80;
 	int i,j,iCount=0;
 	BYTE bValue;
-	int iLineCount = ((m_nWidth*m_nBitCount + 31) / 32) * 4;
 
 	if (m_nBitCount != 8)
 	{
+		int iCount = m_nBitCount;
 		ConvertImageTo8Bit(m_nWidth,m_nHeight,m_nBitCount,m_pImageData);
-		if (m_nBitCount > 8)
+		if (iCount > 8)
 			ConvertImageBinarization();
 	}
 	else
 	{
 		ConvertImageBinarization();
 	}
+	
+	int iLineCount = ((m_nWidth*m_nBitCount + 31) / 32) * 4;
 	
 	for (j = 0; j < m_nHeight; ++j)
 	{

@@ -101,7 +101,7 @@ protected:
 	bool LoadBmpImageFile(const char* lpFileName);
 	bool LoadJpgImageFile(const char* lpFileName);
 	BYTE* StretchImage(int iSrcWidth,int iSrcHeight,int iBitCount,BYTE* lpSrcData,int iDestWidth,int iDestHeight,StretchMode stretMode=StretchMode::bilinear);
-	static BYTE* ConvertImageTo8Bit(int iWidth,int iHeigh,int iBitCount,BYTE* lpSrcData);
+	BYTE* ConvertImageTo8Bit(int iWidth,int iHeigh,int iBitCount,BYTE* lpSrcData);
 	static BYTE* ConvertBmp8to1(int iWidth,int iHeigh,BYTE* lpSrcData);
 	void ImageBinarization(int iWidth,int iHeight,unsigned char *pPixels,float fThresholdKey);
 	bool SaveBmpImageFile(const char* lpFileName);
@@ -109,6 +109,7 @@ protected:
 
 protected:
 	float	m_fThreshold;
+	bool	m_bIsBlackOneBitBmp;
 
 public:
 	int		m_nWidth;
